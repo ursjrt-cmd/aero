@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mechenz Aerospace | Interplanetary Travel</title>
+    
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #030712; 
+        }
+
+        #starfield {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: radial-gradient(circle at center, #0a1128 0%, #030712 100%);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <canvas id="starfield"></canvas>
+
+    <script>
+        const canvas = document.getElementById('starfield');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        let stars = [];
+        let planets = [];
+        
+        const numStars = 800;
+        const numPlanets = 6;
+        const baseSpeed = 0.8; 
+        const planetSpeed = 0.3; // Planets appear to move slower due to size and distance
+
+        // Planet color palettes
+        const planetColors = [
+            '#e11d48', // Crimson Red
+            '#2563eb', // Royal Blue
+            '#d97706', // Amber/Gas Giant
+            '#059669', // Emerald Green
+            '#7c3aed', // Deep Purple
+            '#94a3b8'  // Moon Gray
+        ];
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        class Star {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = (Math.random() - 0.5) * width * 2;
+                this.y = (Math.random() - 0.5) * height * 2;
+                this.z = Math.random() * width;
+                this.pz = this.z;
+            }
+
+            update() {
+                this.z -= baseSpeed + (1 - this.z / width) * 2; 
+                if (this.z <= 0) {
+                    this.reset();
+                    this.z = width;
+                }
+            }
+
+            draw() {
+                const sx = (this.x / this.z) * width + width / 2;
+                const sy = (this.y / this.z) * height + height / 2;
+                
+                const px = (this.x / this.pz) * width + width / 2;
+                const py = (this.y / this.pz) * height + height / 2;
+
+                const intensity = (1 - this.z / width);
+                const size = intensity * 2.5;
+
+                ctx.beginPath();
+                ctx.arc(sx, sy, size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(224, 242, 254, ${intensity})`; 
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(sx, sy);
+                ctx.lineWidth = size * 0.5;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${intensity * 0.5})`; 
+                ctx.stroke();
+
+                this.pz = this.z;
+            }
+        }
+
+        class Planet {
+            constructor() {
+                this.reset(true);
+            }
+
+            reset(initial = false) {
+                this.x = (Math.random() - 0.5) * width * 4; // Wider spawn area
+                this.y = (Math.random() - 0.5) * height * 4;
+                // If initial, spawn them scattered. Otherwise spawn them far away.
+                this.z = initial ? Math.random() * width * 3 : width * 3;
+                this.baseRadius = 20 + Math.random() * 80; // Different sized planets
+                this.color = planetColors[Math.floor(Math.random() * planetColors.length)];
+            }
+
+            update() {
+                this.z -= planetSpeed + (1 - this.z / (width * 3)) * 4; 
+                if (this.z <= 10) { // Reset before it crosses the camera plane
+                    this.reset();
+                }
+            }
+
+            draw() {
+                const sx = (this.x / this.z) * width + width / 2;
+                const sy = (this.y / this.z) * height + height / 2;
+                
+                // Calculate size based on depth
+                const size = this.baseRadius * (width / this.z);
+
+                // Only draw if within reasonable bounds to save performance
+                if (sx > -size && sx < width + size && sy > -size && sy < height + size && size < width * 2) {
+                    
+                    // Add 3D shading gradient
+                    const gradient = ctx.createRadialGradient(
+                        sx - size * 0.3, sy - size * 0.3, size * 0.1, 
+                        sx, sy, size
+                    );
+                    gradient.addColorStop(0, this.color);
+                    gradient.addColorStop(1, '#020617'); // Dark shadow on edges
+
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, size, 0, Math.PI * 2);
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                }
+            }
+        }
+
+        function drawSpaceship() {
+            const shipX = width / 2;
+            const shipY = height - 120; // Fixed at the bottom center
+            
+            ctx.save();
+            ctx.translate(shipX, shipY);
+
+            // Thruster Engine Glow
+            const thrustFlicker = Math.random() * 20;
+            ctx.beginPath();
+            ctx.moveTo(-15, 25);
+            ctx.lineTo(15, 25);
+            ctx.lineTo(0, 60 + thrustFlicker);
+            ctx.closePath();
+            
+            const thrustGradient = ctx.createLinearGradient(0, 25, 0, 80);
+            thrustGradient.addColorStop(0, 'rgba(56, 189, 248, 0.9)'); // Cyan
+            thrustGradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
+            ctx.fillStyle = thrustGradient;
+            ctx.fill();
+
+            // Main Fuselage (Blue and Red)
+            ctx.beginPath();
+            ctx.moveTo(0, -50);  // Nose
+            ctx.lineTo(30, 25);  // Right wing tip
+            ctx.lineTo(10, 15);  // Right inner engine edge
+            ctx.lineTo(0, 25);   // Tail center
+            ctx.lineTo(-10, 15); // Left inner engine edge
+            ctx.lineTo(-30, 25); // Left wing tip
+            ctx.closePath();
+            
+            ctx.fillStyle = '#1e3a8a'; // Deep blue base
+            ctx.fill();
+            
+            ctx.strokeStyle = '#e11d48'; // Red accent trim
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Cockpit Canopy
+            ctx.beginPath();
+            ctx.moveTo(0, -20);
+            ctx.lineTo(8, 5);
+            ctx.lineTo(-8, 5);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(224, 242, 254, 0.9)'; // Glass reflection
+            ctx.fill();
+
+            // Wing Accents
+            ctx.beginPath();
+            ctx.moveTo(-20, 15);
+            ctx.lineTo(-30, 25);
+            ctx.moveTo(20, 15);
+            ctx.lineTo(30, 25);
+            ctx.strokeStyle = '#e11d48';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function initCanvas() {
+            stars = Array.from({ length: numStars }, () => new Star());
+            planets = Array.from({ length: numPlanets }, () => new Planet());
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(3, 7, 18, 0.35)'; 
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw objects in depth order (stars -> planets -> spaceship)
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+
+            // Sort planets by distance so closer ones draw on top of farther ones
+            planets.sort((a, b) => b.z - a.z);
+            planets.forEach(planet => {
+                planet.update();
+                planet.draw();
+            });
+
+            drawSpaceship();
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        initCanvas();
+        animate();
+    </script>
+</body>
+</html>
